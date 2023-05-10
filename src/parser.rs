@@ -6,7 +6,7 @@ use itertools::Itertools;
 use nom::{
     branch::alt,
     bytes::complete::{is_a, is_not, tag, take_until, take_while},
-    character::complete::{alpha1, char, line_ending, multispace0, one_of},
+    character::complete::{alpha1, alphanumeric1, char, line_ending, multispace0, one_of},
     combinator::{all_consuming, cut, map, map_res, opt, peek, recognize},
     error::{context, ParseError},
     multi::{fold_many0, separated_list},
@@ -72,6 +72,10 @@ fn quoted_string<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, &s
     )(input)
 }
 
+fn non_quoted_string<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, &str, E> {
+    context("non-quoted string", alphanumeric1)(input)
+}
+
 fn boolean<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, bool, E> {
     map_res(alpha1, |s: &str| s.parse::<bool>())(input)
 }
@@ -86,7 +90,11 @@ fn simple_attr_value<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str
                 map(quoted_string, |s| Value::String(s.to_string())),
                 map(terminated(double, peek(one_of(",; \t)"))), Value::Float),
                 map(boolean, Value::Bool),
-                map(map(expression, String::from), Value::Expression),
+                map(
+                    map(terminated(expression, peek(one_of(",; \t)"))), String::from),
+                    Value::Expression,
+                ),
+                map(non_quoted_string, |s| Value::String(s.to_string())),
             )),
         ),
     )(input)
@@ -397,6 +405,16 @@ line
         );
     }
     #[test]
+    fn test_simple_attribute_alphanumeric() {
+        assert_eq!(
+            simple_attribute::<(&str, ErrorKind)>("time_unit : 1ns ; "),
+            Ok((
+                " ",
+                GroupItem::SimpleAttr(String::from("time_unit"), Value::String(String::from("1ns")),)
+            ))
+        );
+    }
+    #[test]
     fn test_simple_attribute_bool() {
         assert_eq!(
             simple_attribute::<(&str, ErrorKind)>("attr_name : true ; "),
@@ -619,7 +637,7 @@ library(foo) {
 
   delay_model : table_lookup;
   /* unit attributes */
-  time_unit : "1ns";
+  time_unit : 1ns;
   capacitive_load_unit (1, pf );
   function: "A & B";
 
