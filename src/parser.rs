@@ -1,7 +1,6 @@
 use crate::ast::{GroupItem, Value};
 
-use gpoint::GPoint;
-
+use float_pretty_print::PrettyPrintFloat;
 use itertools::Itertools;
 use nom::{
     branch::alt,
@@ -209,12 +208,12 @@ fn parse_group<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, Grou
                                     alt((
                                         map(quoted_string, |s| format!("\"{}\"", s)),
                                         map(underscore_tag, |s| format!("{}", s)),
-                                        map(double, |s| format!("{}", GPoint(s))),
+                                        map(double, |s| format!("{}", PrettyPrintFloat(s))),
                                         map(quoted_floats, |s| {
                                             format!(
                                                 "\"{}\"",
                                                 s.into_iter()
-                                                    .map(|f| format!("{}", GPoint(f)))
+                                                    .map(|f| format!("{}", PrettyPrintFloat(f)))
                                                     .format(",")
                                             )
                                         }),
@@ -410,7 +409,10 @@ line
             simple_attribute::<(&str, ErrorKind)>("time_unit : 1ns ; "),
             Ok((
                 " ",
-                GroupItem::SimpleAttr(String::from("time_unit"), Value::String(String::from("1ns")),)
+                GroupItem::SimpleAttr(
+                    String::from("time_unit"),
+                    Value::String(String::from("1ns")),
+                )
             ))
         );
     }
