@@ -16,8 +16,8 @@ impl<'a> Error<'a> {
 impl<'a> fmt::Display for Error<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Error(input, Err::Error(err)) => write!(f, "{}", convert_error(input, err.clone())),
-            Error(input, Err::Failure(err)) => write!(f, "{}", convert_error(input, err.clone())),
+            Error(input, Err::Error(err)) => write!(f, "{}", convert_error(*input, err.clone())),
+            Error(input, Err::Failure(err)) => write!(f, "{}", convert_error(*input, err.clone())),
             Error(_, Err::Incomplete(_)) => write!(f, "Input data is incomplete"),
         }
     }

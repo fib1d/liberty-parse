@@ -7,14 +7,16 @@ use nom::{
     bytes::complete::{is_a, is_not, tag, take_until, take_while},
     character::complete::{alpha1, alphanumeric1, char, line_ending, multispace0, one_of},
     combinator::{all_consuming, cut, map, map_res, opt, peek, recognize},
-    error::{context, ParseError},
-    multi::{fold_many0, separated_list},
+    error::{context, ContextError, ParseError},
+    multi::{fold_many0, separated_list1},
     number::complete::double,
     sequence::{delimited, preceded, terminated, tuple},
     IResult,
 };
 
-fn underscore_tag<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, &str, E> {
+fn underscore_tag<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
+    input: &'a str,
+) -> IResult<&str, &str, E> {
     context(
         "underscore_tag",
         recognize(preceded(
@@ -24,13 +26,15 @@ fn underscore_tag<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, &
     )(input)
 }
 
-fn quoted_floats<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, Vec<f64>, E> {
+fn quoted_floats<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
+    input: &'a str,
+) -> IResult<&str, Vec<f64>, E> {
     context(
         "quoted floats",
         preceded(
             char('\"'),
             terminated(
-                separated_list(
+                separated_list1(
                     preceded(multispace0, char(',')),
                     preceded(multispace0, double),
                 ),
@@ -40,9 +44,11 @@ fn quoted_floats<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, Ve
     )(input)
 }
 
-fn expression<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, &str, E> {
+fn expression<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
+    input: &'a str,
+) -> IResult<&str, &str, E> {
     context("expression", move |input| {
-        recognize(separated_list(
+        recognize(separated_list1(
             // operator
             preceded(multispace0, is_a("+-*/")),
             // operand
@@ -64,22 +70,40 @@ fn expression<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, &str,
     })(input)
 }
 
-fn quoted_string<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, &str, E> {
+fn quoted_string<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
+    input: &'a str,
+) -> IResult<&str, &str, E> {
     context(
         "quoted string",
         preceded(char('\"'), cut(terminated(is_not("\""), char('\"')))),
     )(input)
 }
 
-fn non_quoted_string<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, &str, E> {
+fn non_quoted_string<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
+    input: &'a str,
+) -> IResult<&str, &str, E> {
     context("non-quoted string", alphanumeric1)(input)
 }
 
-fn boolean<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, bool, E> {
+fn boolean<
+    'a,
+    E: ParseError<&'a str>
+        + ContextError<&'a str>
+        + nom::error::FromExternalError<&'a str, std::str::ParseBoolError>,
+>(
+    input: &'a str,
+) -> IResult<&str, bool, E> {
     map_res(alpha1, |s: &str| s.parse::<bool>())(input)
 }
 
-fn simple_attr_value<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, Value, E> {
+fn simple_attr_value<
+    'a,
+    E: ParseError<&'a str>
+        + ContextError<&'a str>
+        + nom::error::FromExternalError<&'a str, std::str::ParseBoolError>,
+>(
+    input: &'a str,
+) -> IResult<&str, Value, E> {
     context(
         "simple attr value",
         preceded(
@@ -99,7 +123,14 @@ fn simple_attr_value<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str
     )(input)
 }
 
-fn simple_attribute<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, GroupItem, E> {
+fn simple_attribute<
+    'a,
+    E: ParseError<&'a str>
+        + ContextError<&'a str>
+        + nom::error::FromExternalError<&'a str, std::str::ParseBoolError>,
+>(
+    input: &'a str,
+) -> IResult<&str, GroupItem, E> {
     context(
         "simple attr",
         map(
@@ -114,7 +145,12 @@ fn simple_attribute<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str,
     )(input)
 }
 
-fn complex_attribute_values<'a, E: ParseError<&'a str>>(
+fn complex_attribute_values<
+    'a,
+    E: ParseError<&'a str>
+        + ContextError<&'a str>
+        + nom::error::FromExternalError<&'a str, std::str::ParseBoolError>,
+>(
     input: &'a str,
 ) -> IResult<&str, Vec<Value>, E> {
     context(
@@ -123,7 +159,7 @@ fn complex_attribute_values<'a, E: ParseError<&'a str>>(
             preceded(multispace0, tag("(")),
             delimited(
                 opt(tuple((multispace0, tag("\\"), line_ending))),
-                separated_list(
+                separated_list1(
                     alt((
                         map(
                             tuple((multispace0, tag(","), multispace0, tag("\\"), line_ending)),
@@ -144,7 +180,14 @@ fn complex_attribute_values<'a, E: ParseError<&'a str>>(
     )(input)
 }
 
-fn complex_attribute<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, GroupItem, E> {
+fn complex_attribute<
+    'a,
+    E: ParseError<&'a str>
+        + ContextError<&'a str>
+        + nom::error::FromExternalError<&'a str, std::str::ParseBoolError>,
+>(
+    input: &'a str,
+) -> IResult<&str, GroupItem, E> {
     context(
         "complex attr",
         map(
@@ -158,14 +201,21 @@ fn complex_attribute<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str
     )(input)
 }
 
-fn comment<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, &str, E> {
+fn comment<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
+    input: &'a str,
+) -> IResult<&str, &str, E> {
     context(
         "comment",
         recognize(delimited(tag("/*"), take_until("*/"), tag("*/"))),
     )(input)
 }
 
-fn parse_group_body<'a, E: ParseError<&'a str>>(
+fn parse_group_body<
+    'a,
+    E: ParseError<&'a str>
+        + ContextError<&'a str>
+        + nom::error::FromExternalError<&'a str, std::str::ParseBoolError>,
+>(
     input: &'a str,
 ) -> IResult<&str, Vec<GroupItem>, E> {
     context(
@@ -183,7 +233,7 @@ fn parse_group_body<'a, E: ParseError<&'a str>>(
                     preceded(multispace0, complex_attribute),
                 )),
             ),
-            Vec::new(),
+            Vec::new,
             |mut acc: Vec<_>, item| {
                 acc.push(item);
                 acc
@@ -191,7 +241,14 @@ fn parse_group_body<'a, E: ParseError<&'a str>>(
         ),
     )(input)
 }
-fn parse_group<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, GroupItem, E> {
+fn parse_group<
+    'a,
+    E: ParseError<&'a str>
+        + ContextError<&'a str>
+        + nom::error::FromExternalError<&'a str, std::str::ParseBoolError>,
+>(
+    input: &'a str,
+) -> IResult<&str, GroupItem, E> {
     context(
         "parsing group",
         map(
@@ -201,7 +258,7 @@ fn parse_group<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, Grou
                     preceded(multispace0, char('(')),
                     terminated(
                         map(
-                            separated_list(
+                            separated_list1(
                                 preceded(multispace0, char(',')),
                                 preceded(
                                     multispace0,
@@ -238,7 +295,14 @@ fn parse_group<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, Grou
     )(input)
 }
 
-pub fn parse_libs<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, Vec<GroupItem>, E> {
+pub fn parse_libs<
+    'a,
+    E: ParseError<&'a str>
+        + ContextError<&'a str>
+        + nom::error::FromExternalError<&'a str, std::str::ParseBoolError>,
+>(
+    input: &'a str,
+) -> IResult<&str, Vec<GroupItem>, E> {
     context(
         "parse_libs",
         all_consuming(terminated(
@@ -253,7 +317,7 @@ pub fn parse_libs<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, V
                     ),
                     preceded(multispace0, context("parse_lib", parse_group)),
                 )),
-                Vec::new(),
+                Vec::new,
                 |mut acc: Vec<_>, item| {
                     match &item {
                         GroupItem::Group(_, _, _) => acc.push(item),
