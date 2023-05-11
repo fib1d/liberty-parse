@@ -32,21 +32,19 @@ macro_rules! my_bench_file {
     };
 }
 
-my_bench_file_ast!(ast_small, small);
+//my_bench_file_ast!(ast_small, small);
 my_bench_file_ast!(ast_cells, cells);
-my_bench_file_ast!(ast_cells_timing, cells_timing);
+//my_bench_file_ast!(ast_cells_timing, cells_timing);
 
-my_bench_file!(small);
+//my_bench_file!(small);
 my_bench_file!(cells);
-my_bench_file!(cells_timing);
+//my_bench_file!(cells_timing);
 
 criterion_group!(
-    benches,
-    small,
-    cells,
-    cells_timing,
-    ast_small,
+    benches, //    small,
+    cells,   //    cells_timing,
+    //    ast_small,
     ast_cells,
-    ast_cells_timing
+    //    ast_cells_timing
 );
 criterion_main!(benches);

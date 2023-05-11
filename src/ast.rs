@@ -226,12 +226,17 @@ mod test {
     }
 
     #[test]
-    fn test_files() {
+    fn test_files_small() {
         parse_file!(small);
+    }
+    #[test]
+    fn test_files_cells() {
         parse_file!(cells);
+    }
+    #[test]
+    fn test_files_cells_timing() {
         parse_file!(cells_timing);
     }
-
     #[test]
     fn test_values() {
         assert_eq!(Value::Bool(false).bool(), false);

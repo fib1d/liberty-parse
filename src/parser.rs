@@ -8,7 +8,7 @@ use nom::{
     character::complete::{alpha1, alphanumeric1, char, line_ending, multispace0, one_of},
     combinator::{all_consuming, cut, map, map_res, opt, peek, recognize},
     error::{context, ContextError, ParseError},
-    multi::{fold_many0, separated_list1},
+    multi::{fold_many0, separated_list0, separated_list1},
     number::complete::double,
     sequence::{delimited, preceded, terminated, tuple},
     IResult,
@@ -258,7 +258,7 @@ fn parse_group<
                     preceded(multispace0, char('(')),
                     terminated(
                         map(
-                            separated_list1(
+                            separated_list0(
                                 preceded(multispace0, char(',')),
                                 preceded(
                                     multispace0,
@@ -469,16 +469,31 @@ line
     }
     #[test]
     fn test_simple_attribute_alphanumeric() {
-        assert_eq!(
-            simple_attribute::<(&str, ErrorKind)>("time_unit : 1ns ; "),
-            Ok((
-                " ",
-                GroupItem::SimpleAttr(
-                    String::from("time_unit"),
-                    Value::String(String::from("1ns")),
+        let attribute = "time_unit : 1ns ; ";
+        let parsed = simple_attribute::<VerboseError<&str>>(attribute);
+        match parsed {
+            Result::Err(e) => match e {
+                Err::Incomplete(_) => panic!("Not enough data."),
+                Err::Error(verr) | Err::Failure(verr) => {
+                    panic!(
+                        "parsing simple_attribute failed: {}",
+                        nom::error::convert_error(attribute, verr)
+                    )
+                }
+            },
+            Ok(v) => {
+                assert_eq!(
+                    v,
+                    (
+                        " ",
+                        GroupItem::SimpleAttr(
+                            String::from("time_unit"),
+                            Value::String(String::from("1ns")),
+                        )
+                    )
                 )
-            ))
-        );
+            }
+        }
     }
     #[test]
     fn test_simple_attribute_bool() {
